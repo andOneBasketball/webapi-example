@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -23,12 +24,18 @@ to quickly create a Cobra application.`,
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute(ctx context.Context) {
+	// 将 context 存储到全局变量中，供子命令使用
+	rootCtx = ctx
+
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
 }
+
+// rootCtx 存储从 main 传递下来的根 context
+var rootCtx context.Context
 
 func init() {
 	// Here you will define your flags and configuration settings.

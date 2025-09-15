@@ -1,14 +1,18 @@
 package router
 
 import (
+	"context"
+	"net/http"
+	"time"
 	"webapi-example/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-// Setup 初始化Router
-func initRouter(debug bool) *gin.Engine {
+// RunWithContext starts the HTTP server and gracefully shuts it down on ctx.Done().
+// We intentionally implement it in this package to avoid leaking HTTP details to main.
+func RunWithContext(ctx context.Context, addr string, debug bool) {
 	//设置启动模式
 	switch debug {
 	case true:
@@ -17,15 +21,24 @@ func initRouter(debug bool) *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
-	return r
-}
-
-func Run(addr string, debug bool) {
-	r := initRouter(debug)
-
 	initWebRouter(r)
-	err := r.Run(addr)
-	if err != nil {
-		logger.Log.Fatal("run web server error: ", zap.Any("err", err))
+
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: r,
+	}
+
+	go func() {
+		if err := r.Run(addr); err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatal("run web server error: ", zap.Any("err", err))
+		}
+	}()
+
+	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Log.Error("server shutdown error", zap.Any("err", err))
 	}
 }
